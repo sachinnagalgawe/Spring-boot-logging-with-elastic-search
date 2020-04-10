@@ -38,7 +38,7 @@ public class ElasticSearchController {
 	}
 
 	@GetMapping(value = "/search", produces = MediaType.APPLICATION_JSON_VALUE)
-	public Object paymenySwitchCallbackAPI(@RequestParam(value = "logLevel", required = false) String logLevel,
+	public List<Object> paymenySwitchCallbackAPI(@RequestParam(value = "logLevel", required = false) String logLevel,
 			@RequestParam(value = "traceId", required = false) String traceId,
 			@RequestParam(value = "appName", required = false) String appName) {
 		LOG.info("Search elastic search with Log Level: [{}], Trace Id: [{}], App Name: [{}]", logLevel, traceId, appName);

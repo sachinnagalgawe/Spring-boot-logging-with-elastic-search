@@ -1,21 +1,15 @@
 package com.example.elasticdemo.service.impl;
 
-import java.sql.Timestamp;
-import java.time.LocalDateTime;
 import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.LinkedHashMap;
 import java.util.List;
-import java.util.Map;
 
 import org.apache.commons.lang3.StringUtils;
 import org.elasticsearch.action.index.IndexResponse;
-import org.elasticsearch.action.search.SearchResponse;
+import org.elasticsearch.action.search.SearchRequestBuilder;
 import org.elasticsearch.action.search.SearchType;
 import org.elasticsearch.client.Client;
-import org.elasticsearch.common.Strings;
-import org.elasticsearch.common.xcontent.XContentBuilder;
-import org.elasticsearch.common.xcontent.XContentFactory;
+import org.elasticsearch.index.query.BoolQueryBuilder;
+import org.elasticsearch.index.query.QueryBuilder;
 import org.elasticsearch.index.query.QueryBuilders;
 import org.elasticsearch.search.SearchHit;
 import org.slf4j.Logger;
@@ -27,6 +21,7 @@ import com.example.elasticdemo.model.Log;
 import com.example.elasticdemo.model.Metadata;
 import com.example.elasticdemo.model.Payload;
 import com.example.elasticdemo.service.ElasticSearchService;
+import com.example.elasticdemo.util.SearchHitIterator;
 
 @Service
 public class ElasticSearchServiceImpl implements ElasticSearchService {
@@ -77,7 +72,7 @@ public class ElasticSearchServiceImpl implements ElasticSearchService {
 		// throw new NullPointerException();
 		return null;
 //		} catch (Exception e) {
-//			System.out.println("Error masg: "+e);
+//			//System.out.println("Error masg: "+e);
 //		}
 	}
 
@@ -85,38 +80,58 @@ public class ElasticSearchServiceImpl implements ElasticSearchService {
 	public List<Object> search(String logLevel, String traceId, String appName) {
 		LOG.info("Searching elastic search with Log Level: [{}], Trace Id: [{}], App Name: [{}]", logLevel, traceId,
 				appName);
-		SearchResponse response = null;
+		SearchRequestBuilder requestBuilder = null;
 		if (!StringUtils.isEmpty(logLevel) && !StringUtils.isEmpty(traceId) && !StringUtils.isEmpty(appName)) {
-			response = client.prepareSearch("midaslog").setTypes(appName).setSearchType(SearchType.QUERY_THEN_FETCH)
-					.setQuery(QueryBuilders.matchQuery("logLevel", logLevel))
-					.setQuery(QueryBuilders.matchQuery("traceId", traceId)).get();
+			// System.out.println("All three..");
+
+			BoolQueryBuilder boolQuery = new BoolQueryBuilder();
+			boolQuery.must(QueryBuilders.matchQuery("logLevel", logLevel));
+			boolQuery.must(QueryBuilders.matchQuery("traceId", traceId));
+
+			requestBuilder = client.prepareSearch("midaslog").setTypes(appName).setQuery(boolQuery);
+
 		} else if (!StringUtils.isEmpty(logLevel) && !StringUtils.isEmpty(appName)) {
-			response = client.prepareSearch("midaslog").setTypes(appName).setSearchType(SearchType.QUERY_THEN_FETCH)
-					.setQuery(QueryBuilders.matchQuery("logLevel", logLevel)).get();
+			// System.out.println("Two logLevel and appName");
+
+			QueryBuilder qb = QueryBuilders.matchQuery("logLevel", logLevel);
+			requestBuilder = client.prepareSearch("midaslog").setTypes(appName).setQuery(qb);
+
 		} else if (!StringUtils.isEmpty(logLevel) && !StringUtils.isEmpty(traceId)) {
-			response = client.prepareSearch("midaslog").setSearchType(SearchType.QUERY_THEN_FETCH)
-					.setQuery(QueryBuilders.matchQuery("traceId", traceId))
-					.setQuery(QueryBuilders.matchQuery("logLevel", logLevel)).get();
+			// System.out.println("Two logLevel and traceId");
+
+			BoolQueryBuilder boolQuery = new BoolQueryBuilder();
+			boolQuery.must(QueryBuilders.matchQuery("logLevel", logLevel));
+			boolQuery.must(QueryBuilders.matchQuery("traceId", traceId));
+
+			// QueryBuilder qb = QueryBuilders.multiMatchQuery("logLevel", logLevel,
+			// "traceId", traceId);
+			requestBuilder = client.prepareSearch("midaslog").setQuery(boolQuery);
+
 		} else if (!StringUtils.isEmpty(traceId) && !StringUtils.isEmpty(appName)) {
-			response = client.prepareSearch("midaslog").setTypes(appName).setSearchType(SearchType.QUERY_THEN_FETCH)
-					.setQuery(QueryBuilders.matchQuery("traceId", traceId)).get();
+			// System.out.println("Two appName and traceId");
+			QueryBuilder qb = QueryBuilders.matchQuery("traceId", traceId);
+			requestBuilder = client.prepareSearch("midaslog").setTypes(appName).setQuery(qb);
+
 		} else if (!StringUtils.isEmpty(traceId)) {
-			response = client.prepareSearch("midaslog").setSearchType(SearchType.QUERY_THEN_FETCH)
-					.setQuery(QueryBuilders.matchQuery("traceId", traceId)).get();
+			// System.out.println("One traceId");
+			QueryBuilder qb = QueryBuilders.matchQuery("traceId", traceId);
+			requestBuilder = client.prepareSearch("midaslog").setQuery(qb);
+
 		} else if (!StringUtils.isEmpty(logLevel)) {
-			response = client.prepareSearch("midaslog").setSearchType(SearchType.QUERY_THEN_FETCH)
-					.setQuery(QueryBuilders.matchQuery("logLevel", logLevel)).get();
+			// System.out.println("One logLevel");
+			QueryBuilder qb = QueryBuilders.matchQuery("logLevel", logLevel);
+			requestBuilder = client.prepareSearch("midaslog").setQuery(qb);
 		} else if (!StringUtils.isEmpty(appName)) {
-			response = client.prepareSearch("midaslog").setTypes(appName).setSearchType(SearchType.QUERY_THEN_FETCH)
-					.get();
+			// System.out.println("One appName");
+			requestBuilder = client.prepareSearch("midaslog").setTypes(appName);
 		}
 
-		Map<String, Object> map = new LinkedHashMap<String, Object>();
-		List<SearchHit> searchHits = Arrays.asList(response.getHits().getHits());
-		List<Object> sourceObjectList = new ArrayList<>();
-		for (int i = 0; i < searchHits.size(); i++) {
-			sourceObjectList.add(searchHits.get(i).getSourceAsMap());
+		SearchHitIterator hitIterator = new SearchHitIterator(requestBuilder);
+		List<Object> list = new ArrayList<>();
+		while (hitIterator.hasNext()) {
+			SearchHit hit = hitIterator.next();
+			list.add(hit.getSourceAsMap());
 		}
-		return sourceObjectList;
+		return list;
 	}
 }
