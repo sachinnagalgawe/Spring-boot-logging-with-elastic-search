@@ -32,17 +32,20 @@ public class ElasticSearchController {
 	}
 
 	@PostMapping(value = "/test", consumes = MediaType.APPLICATION_JSON_VALUE, produces = MediaType.APPLICATION_JSON_VALUE)
-	public Object createTestIndex(@RequestBody Log message) {
+	public Object createTestIndex(@RequestBody String message) {
 		LOG.info("Search elastic create index {} ", message);
 		return searchService.create(message);
 	}
 
 	@GetMapping(value = "/search", produces = MediaType.APPLICATION_JSON_VALUE)
-	public List<Object> paymenySwitchCallbackAPI(@RequestParam(value = "logLevel", required = false) String logLevel,
+	public Object paymenySwitchCallbackAPI(
+			@RequestParam(value = "logLevel", required = false) String logLevel,
 			@RequestParam(value = "traceId", required = false) String traceId,
-			@RequestParam(value = "appName", required = false) String appName) {
-		LOG.info("Search elastic search with Log Level: [{}], Trace Id: [{}], App Name: [{}]", logLevel, traceId, appName);
-		List<Object> response = searchService.search(logLevel, traceId, appName);
+			@RequestParam(value = "appName", required = false) String appName,
+			@RequestParam(value = "page", required = true) int page,
+			@RequestParam(value = "count", required = true) int count) {
+		LOG.info("Search elastic search with Log Level: [{}], Trace Id: [{}], App Name: [{}], Page: [{}], Count: [{}]", logLevel, traceId, appName, page, count);
+		List<Object> response = searchService.search(logLevel, traceId, appName, page, count);
 		return response;
-	}
+	}	
 }

@@ -10,5 +10,7 @@ public interface ElasticSearchService {
 
 	public IndexResponse create(Log message);
 
-	public List<Object> search(String logLevel, String traceId, String appName);
+	public IndexResponse create(String message);
+
+	public List<Object> search(String logLevel, String traceId, String appName, int page, int count);
 }

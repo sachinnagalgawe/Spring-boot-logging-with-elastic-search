@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<configuration scan="false">
+	<contextName>logging</contextName>
+	<appender name="map"
+		class="com.example.elasticdemo.config.TestAppender" />
+	<root level="WARN">
+		<appender-ref ref="map" />
+	</root>
+</configuration>
