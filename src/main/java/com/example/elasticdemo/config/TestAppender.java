@@ -10,6 +10,7 @@ import com.example.elasticdemo.model.Log;
 import com.example.elasticdemo.model.Metadata;
 import com.example.elasticdemo.model.Payload;
 import com.example.elasticdemo.util.BeanUtil;
+import com.example.elasticdemo.util.TracerUtil;
 
 import ch.qos.logback.classic.spi.ILoggingEvent;
 import ch.qos.logback.classic.spi.IThrowableProxy;
@@ -27,15 +28,10 @@ public class TestAppender extends AppenderBase<ILoggingEvent> {
 			String internalLogLevel = configHolder.getInternalLogLevel();
 			
 			System.out.println("Test appender");
-			System.out.println("enableInternalLogs "+enableInternalLogs);
-			System.out.println("internalLogLevel "+internalLogLevel);
-
 			String logLevelToStore = getlogLevelsToStore(enableInternalLogs, internalLogLevel);
-
 			System.out.println("logLevelMap : "+logLevelToStore);
 			System.out.println("internal log : "+event.getLevel().toString());
-			System.out.println("internal log : "+event.getLevel().toString());
-
+			System.out.println("getLoggerName : "+event.getLoggerName().toString());
 			
 			if(logLevelToStore.contains(event.getLevel().toString()) || logLevelToStore.contains(event.getLevel().toString())) {
 				if (event.getLoggerName().trim().toString().contains("com.example") || event.getLoggerName().trim()
@@ -67,19 +63,23 @@ public class TestAppender extends AppenderBase<ILoggingEvent> {
 						generatedBy = className + "/" + methodName;
 					}
 
+					// Get the tracer util bean
+					TracerUtil tracerUtil = BeanUtil.getBean(TracerUtil.class);
+					
 					Log log = new Log();
 					Metadata metadata = new Metadata();
 					metadata.setPayloadType("midaslog");
-					metadata.setEventName("LogEvent");// what is event name
+					metadata.setEventName("LogEvent");
 					metadata.setCategory("System-Log");
 					Payload payload = new Payload();
-					if (event.getLoggerName().trim().toString()
+					if ((event.getLoggerName().trim().toString()
 							.contains("org.springframework.cloud.sleuth.instrument.web.ExceptionLoggingFilter") || event.getLoggerName().trim().toString()
-							.contains("com.example")) {
+							.contains("com.example")) && !StringUtils.isEmpty(stackTrace)) {
 						payload.setLog(stackTrace);
 					} else {
 						payload.setLog(event.getFormattedMessage());
 					}
+					payload.setTraceId(tracerUtil.getTraceId());
 					payload.setServiceId("elastic demo");
 					payload.setLogLevel(event.getLevel().toString());
 					payload.setGeneratedBy(generatedBy);
