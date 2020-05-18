@@ -6,7 +6,6 @@ import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
 import java.sql.Timestamp;
 import java.util.Date;
-import java.util.concurrent.TimeUnit;
 
 import org.apache.commons.lang3.time.StopWatch;
 import org.slf4j.Logger;
@@ -60,14 +59,15 @@ public class HttpInterceptor implements ClientHttpRequestInterceptor {
 	}
 
 	private void traceRequest(HttpRequest request, byte[] body) throws IOException {
-		RequestLogDetails requestLogDetails = new RequestLogDetails();
+		System.out.println("trace http request");
 		String traceId = tracer.getTraceId();
-		requestLogDetails.setTraceId(traceId);
-		requestLogDetails.setUrl(request.getURI().toString());
-		requestLogDetails.setBody(new String(body, StandardCharsets.UTF_8));
-		requestLogDetails.setMethod(request.getMethod().toString());
-		requestLogDetails.setHeaders(request.getHeaders());
-		String requestLogDetailsString= mapper.writeValueAsString(requestLogDetails);
+		String requestBody = null;
+		if (body.length > 0) {
+			requestBody = new String(body, StandardCharsets.UTF_8);
+		}
+		RequestLogDetails requestLogDetails = new RequestLogDetails(traceId, request.getMethod().toString(),
+				request.getURI().toString(), request.getURI().getRawQuery(), request.getHeaders(), requestBody);
+		String requestLogDetailsString = mapper.writeValueAsString(requestLogDetails);
 		this.createLog(traceId, requestLogDetailsString, "INFO", "REST_TEMPLATE_REQUEST", "traceRequest");
 	}
 
