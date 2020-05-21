@@ -7,19 +7,17 @@ import java.nio.charset.StandardCharsets;
 import java.sql.Timestamp;
 import java.util.Date;
 
-import org.apache.commons.lang3.time.StopWatch;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpRequest;
-import org.springframework.http.MediaType;
 import org.springframework.http.client.ClientHttpRequestExecution;
 import org.springframework.http.client.ClientHttpRequestInterceptor;
 import org.springframework.http.client.ClientHttpResponse;
 import org.springframework.stereotype.Component;
 import org.springframework.util.StreamUtils;
 import org.springframework.util.StringUtils;
+import org.springframework.util.StopWatch;
 
 import com.example.elasticdemo.model.Log;
 import com.example.elasticdemo.model.Metadata;
@@ -43,44 +41,62 @@ public class HttpInterceptor implements ClientHttpRequestInterceptor {
 	@Autowired
 	private LogSubscriber logSubscriber;
 
+	//@Async
 	@Override
 	public ClientHttpResponse intercept(HttpRequest request, byte[] body, ClientHttpRequestExecution execution)
 			throws IOException {
-		HttpHeaders headers = request.getHeaders();
-		headers.add("Accept", MediaType.APPLICATION_JSON_VALUE);
-		headers.add("Content-Type", MediaType.APPLICATION_JSON_VALUE);
+		// Trace Request
 		traceRequest(request, body);
-        StopWatch stopwatch = StopWatch.createStarted();
-		ClientHttpResponse response = execution.execute(request, body);
+        
+		// Create a stop watch
+		StopWatch stopwatch = new StopWatch();
+        stopwatch.start();
+        
+        // Execute the request
+        ClientHttpResponse response = execution.execute(request, body);
+        
+        // Check response time
         stopwatch.stop();
-        long timeInMiliseconds = stopwatch.getTime();
-		traceResponse(response, timeInMiliseconds);
+        long timeInMiliseconds = stopwatch.getLastTaskTimeMillis();
+		
+        // Trace response
+        traceResponse(response, timeInMiliseconds);
 		return response;
 	}
 
 	private void traceRequest(HttpRequest request, byte[] body) throws IOException {
-		System.out.println("trace http request");
+		// Get trace Id
 		String traceId = tracer.getTraceId();
+		// Get request body
 		String requestBody = null;
 		if (body.length > 0) {
 			requestBody = new String(body, StandardCharsets.UTF_8);
 		}
+		// Set request details
 		RequestLogDetails requestLogDetails = new RequestLogDetails(traceId, request.getMethod().toString(),
 				request.getURI().toString(), request.getURI().getRawQuery(), request.getHeaders(), requestBody);
+		
+		// Convert request details to JSON string
 		String requestLogDetailsString = mapper.writeValueAsString(requestLogDetails);
 		this.createLog(traceId, requestLogDetailsString, "INFO", "REST_TEMPLATE_REQUEST", "traceRequest");
 	}
 
 	private void traceResponse(ClientHttpResponse response, long responseTime) throws IOException {
+		// Get trace Id
 		String traceId = tracer.getTraceId();
+		// Get response body
 		InputStream bodyData = response.getBody();
-        String body = (StreamUtils.copyToString(bodyData, Charset.defaultCharset()));
+		String body = (StreamUtils.copyToString(bodyData, Charset.defaultCharset()));
+		
+		// Set response data
 		ResponseLogDetails responseLogDetails = new ResponseLogDetails();
 		responseLogDetails.setTraceId(traceId);
 		responseLogDetails.setBody(body);
 		responseLogDetails.setStatus(response.getStatusCode().value());
 		responseLogDetails.setHeaders(response.getHeaders());
 		responseLogDetails.setTimeInMilliseconds(responseTime);
+		
+		// Convert responseLogDetails to JSON string
 		String responseLogDetailsString = mapper.writeValueAsString(responseLogDetails);
 		this.createLog(traceId, responseLogDetailsString, "INFO", "REST_TEMPLATE_RESPONSE", "traceResponse");
 	}
